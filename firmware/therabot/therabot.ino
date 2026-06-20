@@ -37,6 +37,7 @@ const int           BATCH_SAMPLES    = SAMPLE_HZ * BATCH_SECONDS;
 const int           CHUNK_SAMPLES    = 20;
 const float         ACCEL_COUNTS_PER_G = 16384.0;
 const float         GYRO_COUNTS_PER_DPS = 131.0;
+const int           REST_CALIBRATION_SAMPLES = 10;
 
 // ===================== Moving-average filter (Stage 2) =====================
 const int MA_WINDOW = 5;
@@ -98,6 +99,10 @@ float lastXg = 0.0;
 float lastYg = 0.0;
 float lastZg = 0.0;
 bool  haveLastAccel = false;
+float restXg = 0.0;
+float restYg = 0.0;
+float restZg = 0.0;
+bool  restCalibrated = false;
 
 // ---- I2C helpers ----
 int16_t read16() {
@@ -137,6 +142,34 @@ bool readMotion(int16_t &ax, int16_t &ay, int16_t &az,
   gx = read16();
   gy = read16();
   gz = read16();
+  return true;
+}
+
+bool calibrateRestPose() {
+  float sumX = 0.0;
+  float sumY = 0.0;
+  float sumZ = 0.0;
+  int goodSamples = 0;
+
+  Serial.println("[mpu] keep sensor still: calibrating rest pose");
+  for (int i = 0; i < REST_CALIBRATION_SAMPLES; i++) {
+    int16_t ax, ay, az, gx, gy, gz;
+    if (readMotion(ax, ay, az, gx, gy, gz)) {
+      sumX += ax / ACCEL_COUNTS_PER_G;
+      sumY += ay / ACCEL_COUNTS_PER_G;
+      sumZ += az / ACCEL_COUNTS_PER_G;
+      goodSamples++;
+    }
+    delay(100);
+  }
+
+  if (goodSamples == 0) return false;
+
+  restXg = sumX / goodSamples;
+  restYg = sumY / goodSamples;
+  restZg = sumZ / goodSamples;
+  restCalibrated = true;
+  Serial.printf("[mpu] rest baseline x=%.4f y=%.4f z=%.4f\n", restXg, restYg, restZg);
   return true;
 }
 
@@ -443,6 +476,9 @@ void setup() {
     Wire.beginTransmission(MPU); Wire.write(0x19); Wire.write(0x13); Wire.endTransmission(true);
     delay(50);
     Serial.printf("[mpu] MPU6050 ready at %d Hz, accel +/-2g, gyro +/-250 dps\n", SAMPLE_HZ);
+    if (!calibrateRestPose()) {
+      Serial.println("[warn] MPU6050 rest calibration failed");
+    }
   }
 
   pinMode(MOTOR_ENA, OUTPUT);
@@ -455,7 +491,7 @@ void setup() {
   Serial.printf("[sample] %d Hz, %d samples per batch (~%d s)\n",
                 SAMPLE_HZ, BATCH_SAMPLES, BATCH_SECONDS);
   Serial.println("[serial] type 'agitated' or 'calm' and press Send");
-  Serial.println("csv,ms,sample_index,x_raw,y_raw,z_raw,x_g,y_g,z_g,magnitude_g,motion_delta_g,gx_raw,gy_raw,gz_raw,gx_dps,gy_dps,gz_dps");
+  Serial.println("csv,ms,sample_index,x_raw,y_raw,z_raw,x_g,y_g,z_g,magnitude_g,motion_delta_g,tilt_delta_g,gx_raw,gy_raw,gz_raw,gx_dps,gy_dps,gz_dps,gyro_mag_dps,motion_score");
 
   motorPhaseStart = millis();
   lastSampleMs    = millis();
@@ -497,6 +533,7 @@ void loop() {
     float yg = ry / ACCEL_COUNTS_PER_G;
     float zg = rz / ACCEL_COUNTS_PER_G;
     float mag = sqrt((xg * xg) + (yg * yg) + (zg * zg));
+
     float motionDelta = 0.0;
     if (haveLastAccel) {
       float dx = xg - lastXg;
@@ -512,10 +549,22 @@ void loop() {
     float gxDps = rgx / GYRO_COUNTS_PER_DPS;
     float gyDps = rgy / GYRO_COUNTS_PER_DPS;
     float gzDps = rgz / GYRO_COUNTS_PER_DPS;
+    float gyroMagDps = sqrt((gxDps * gxDps) + (gyDps * gyDps) + (gzDps * gzDps));
 
-    Serial.printf("csv,%lu,%lu,%d,%d,%d,%.6f,%.6f,%.6f,%.6f,%.6f,%d,%d,%d,%.3f,%.3f,%.3f\n",
+    float tiltDelta = 0.0;
+    if (restCalibrated) {
+      float tx = xg - restXg;
+      float ty = yg - restYg;
+      float tz = zg - restZg;
+      tiltDelta = sqrt((tx * tx) + (ty * ty) + (tz * tz));
+    }
+
+    float motionScore = (tiltDelta * 100.0) + (motionDelta * 100.0) + gyroMagDps;
+
+    Serial.printf("csv,%lu,%lu,%d,%d,%d,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%d,%d,%d,%.3f,%.3f,%.3f,%.3f,%.3f\n",
                   now, (unsigned long)sampleNumber, rx, ry, rz, xg, yg, zg, mag,
-                  motionDelta, rgx, rgy, rgz, gxDps, gyDps, gzDps);
+                  motionDelta, tiltDelta, rgx, rgy, rgz, gxDps, gyDps, gzDps,
+                  gyroMagDps, motionScore);
     sampleNumber++;
 
     int16_t fx, fy, fz;
