@@ -2,7 +2,7 @@
    TheraBot - Sampling + Filtering Node (ESP32 DevKitC v4)
 
    EDGE half of the TheraBot pipeline (Stages 1 + 2):
-     Stage 1  Sampling  : MPU6050 accel at 50 Hz, batched every ~2 s over BLE
+     Stage 1  Sampling  : MPU6050 accel at 5 Hz, batched every ~2 s over BLE
      Stage 2  Filtering : moving-average filter (window = 5) on each axis
 
    Host pipeline (Stages 3-6) connects over BLE and listens for batches.
@@ -16,7 +16,7 @@
 
    Sample units on the wire: raw signed 16-bit counts at +/-2g.
    Host divides by 16384.0 to get g.
-   Serial CSV rows include raw MPU6050 counts and converted g values.
+   Serial CSV rows include raw MPU6050 accel/gyro values and motion delta.
 */
 
 #include <Wire.h>
@@ -36,6 +36,7 @@ const int           BATCH_SECONDS    = 2;
 const int           BATCH_SAMPLES    = SAMPLE_HZ * BATCH_SECONDS;
 const int           CHUNK_SAMPLES    = 20;
 const float         ACCEL_COUNTS_PER_G = 16384.0;
+const float         GYRO_COUNTS_PER_DPS = 131.0;
 
 // ===================== Moving-average filter (Stage 2) =====================
 const int MA_WINDOW = 5;
@@ -93,6 +94,10 @@ int       agitatedRepeat   = 0;
 unsigned long lastSampleMs = 0;
 unsigned long lastStatusMs = 0;
 uint32_t sampleNumber = 0;
+float lastXg = 0.0;
+float lastYg = 0.0;
+float lastZg = 0.0;
+bool  haveLastAccel = false;
 
 // ---- I2C helpers ----
 int16_t read16() {
@@ -114,6 +119,25 @@ void readAccel(int16_t &ax, int16_t &ay, int16_t &az) {
   ax = read16();
   ay = read16();
   az = read16();
+}
+
+bool readMotion(int16_t &ax, int16_t &ay, int16_t &az,
+                int16_t &gx, int16_t &gy, int16_t &gz) {
+  Wire.beginTransmission(MPU);
+  Wire.write(0x3B);
+  if (Wire.endTransmission(false) != 0) return false;
+
+  int bytesRead = Wire.requestFrom(MPU, 14, true);
+  if (bytesRead < 14) return false;
+
+  ax = read16();
+  ay = read16();
+  az = read16();
+  read16();  // temperature, unused
+  gx = read16();
+  gy = read16();
+  gz = read16();
+  return true;
 }
 
 // ---- Moving-average filter ----
@@ -418,7 +442,7 @@ void setup() {
     Wire.beginTransmission(MPU); Wire.write(0x1A); Wire.write(0x04); Wire.endTransmission(true);
     Wire.beginTransmission(MPU); Wire.write(0x19); Wire.write(0x13); Wire.endTransmission(true);
     delay(50);
-    Serial.println("[mpu] MPU6050 ready at 50 Hz, +/-2g");
+    Serial.printf("[mpu] MPU6050 ready at %d Hz, accel +/-2g, gyro +/-250 dps\n", SAMPLE_HZ);
   }
 
   pinMode(MOTOR_ENA, OUTPUT);
@@ -431,7 +455,7 @@ void setup() {
   Serial.printf("[sample] %d Hz, %d samples per batch (~%d s)\n",
                 SAMPLE_HZ, BATCH_SAMPLES, BATCH_SECONDS);
   Serial.println("[serial] type 'agitated' or 'calm' and press Send");
-  Serial.println("csv,ms,sample_index,x_raw,y_raw,z_raw,x_g,y_g,z_g,magnitude_g");
+  Serial.println("csv,ms,sample_index,x_raw,y_raw,z_raw,x_g,y_g,z_g,magnitude_g,motion_delta_g,gx_raw,gy_raw,gz_raw,gx_dps,gy_dps,gz_dps");
 
   motorPhaseStart = millis();
   lastSampleMs    = millis();
@@ -459,19 +483,39 @@ void loop() {
     oldDeviceConnected = deviceConnected;
   }
 
-  // Stage 1 + 2: sample at 50 Hz
+  // Stage 1 + 2: sample at SAMPLE_HZ
   if (now - lastSampleMs >= SAMPLE_PERIOD_MS) {
     lastSampleMs += SAMPLE_PERIOD_MS;
 
-    int16_t rx, ry, rz;
-    readAccel(rx, ry, rz);
+    int16_t rx, ry, rz, rgx, rgy, rgz;
+    if (!readMotion(rx, ry, rz, rgx, rgy, rgz)) {
+      Serial.println("[warn] MPU6050 read failed");
+      return;
+    }
 
     float xg = rx / ACCEL_COUNTS_PER_G;
     float yg = ry / ACCEL_COUNTS_PER_G;
     float zg = rz / ACCEL_COUNTS_PER_G;
     float mag = sqrt((xg * xg) + (yg * yg) + (zg * zg));
-    Serial.printf("csv,%lu,%lu,%d,%d,%d,%.6f,%.6f,%.6f,%.6f\n",
-                  now, (unsigned long)sampleNumber, rx, ry, rz, xg, yg, zg, mag);
+    float motionDelta = 0.0;
+    if (haveLastAccel) {
+      float dx = xg - lastXg;
+      float dy = yg - lastYg;
+      float dz = zg - lastZg;
+      motionDelta = sqrt((dx * dx) + (dy * dy) + (dz * dz));
+    }
+    lastXg = xg;
+    lastYg = yg;
+    lastZg = zg;
+    haveLastAccel = true;
+
+    float gxDps = rgx / GYRO_COUNTS_PER_DPS;
+    float gyDps = rgy / GYRO_COUNTS_PER_DPS;
+    float gzDps = rgz / GYRO_COUNTS_PER_DPS;
+
+    Serial.printf("csv,%lu,%lu,%d,%d,%d,%.6f,%.6f,%.6f,%.6f,%.6f,%d,%d,%d,%.3f,%.3f,%.3f\n",
+                  now, (unsigned long)sampleNumber, rx, ry, rz, xg, yg, zg, mag,
+                  motionDelta, rgx, rgy, rgz, gxDps, gyDps, gzDps);
     sampleNumber++;
 
     int16_t fx, fy, fz;
