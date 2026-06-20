@@ -14,10 +14,17 @@ import argparse
 import asyncio
 import csv
 import math
+import os
+from pathlib import Path
 import struct
 import sys
 import time
 from datetime import datetime, timezone
+
+if sys.prefix == sys.base_prefix:
+    venv_python = Path(__file__).resolve().parent / ".venv" / "bin" / "python"
+    if venv_python.exists():
+        os.execv(str(venv_python), [str(venv_python), __file__, *sys.argv[1:]])
 
 from bleak import BleakClient, BleakScanner
 
