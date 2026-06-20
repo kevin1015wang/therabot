@@ -102,6 +102,9 @@ bool  haveLastAccel = false;
 float restXg = 0.0;
 float restYg = 0.0;
 float restZg = 0.0;
+float restGxDps = 0.0;
+float restGyDps = 0.0;
+float restGzDps = 0.0;
 bool  restCalibrated = false;
 
 // ---- I2C helpers ----
@@ -149,6 +152,9 @@ bool calibrateRestPose() {
   float sumX = 0.0;
   float sumY = 0.0;
   float sumZ = 0.0;
+  float sumGx = 0.0;
+  float sumGy = 0.0;
+  float sumGz = 0.0;
   int goodSamples = 0;
 
   Serial.println("[mpu] keep sensor still: calibrating rest pose");
@@ -158,6 +164,9 @@ bool calibrateRestPose() {
       sumX += ax / ACCEL_COUNTS_PER_G;
       sumY += ay / ACCEL_COUNTS_PER_G;
       sumZ += az / ACCEL_COUNTS_PER_G;
+      sumGx += gx / GYRO_COUNTS_PER_DPS;
+      sumGy += gy / GYRO_COUNTS_PER_DPS;
+      sumGz += gz / GYRO_COUNTS_PER_DPS;
       goodSamples++;
     }
     delay(100);
@@ -168,8 +177,12 @@ bool calibrateRestPose() {
   restXg = sumX / goodSamples;
   restYg = sumY / goodSamples;
   restZg = sumZ / goodSamples;
+  restGxDps = sumGx / goodSamples;
+  restGyDps = sumGy / goodSamples;
+  restGzDps = sumGz / goodSamples;
   restCalibrated = true;
-  Serial.printf("[mpu] rest baseline x=%.4f y=%.4f z=%.4f\n", restXg, restYg, restZg);
+  Serial.printf("[mpu] rest baseline accel x=%.4f y=%.4f z=%.4f gyro x=%.3f y=%.3f z=%.3f\n",
+                restXg, restYg, restZg, restGxDps, restGyDps, restGzDps);
   return true;
 }
 
@@ -491,7 +504,7 @@ void setup() {
   Serial.printf("[sample] %d Hz, %d samples per batch (~%d s)\n",
                 SAMPLE_HZ, BATCH_SAMPLES, BATCH_SECONDS);
   Serial.println("[serial] type 'agitated' or 'calm' and press Send");
-  Serial.println("csv,ms,sample_index,x_raw,y_raw,z_raw,x_g,y_g,z_g,magnitude_g,motion_delta_g,tilt_delta_g,gx_raw,gy_raw,gz_raw,gx_dps,gy_dps,gz_dps,gyro_mag_dps,motion_score");
+  Serial.println("csv,ms,sample_index,x_raw,y_raw,z_raw,x_g,y_g,z_g,magnitude_g,motion_delta_g,tilt_delta_g,gx_raw,gy_raw,gz_raw,gx_dps,gy_dps,gz_dps,gyro_motion_dps,movement_level");
 
   motorPhaseStart = millis();
   lastSampleMs    = millis();
@@ -549,7 +562,10 @@ void loop() {
     float gxDps = rgx / GYRO_COUNTS_PER_DPS;
     float gyDps = rgy / GYRO_COUNTS_PER_DPS;
     float gzDps = rgz / GYRO_COUNTS_PER_DPS;
-    float gyroMagDps = sqrt((gxDps * gxDps) + (gyDps * gyDps) + (gzDps * gzDps));
+    float gyroDx = gxDps - restGxDps;
+    float gyroDy = gyDps - restGyDps;
+    float gyroDz = gzDps - restGzDps;
+    float gyroMotionDps = sqrt((gyroDx * gyroDx) + (gyroDy * gyroDy) + (gyroDz * gyroDz));
 
     float tiltDelta = 0.0;
     if (restCalibrated) {
@@ -559,12 +575,15 @@ void loop() {
       tiltDelta = sqrt((tx * tx) + (ty * ty) + (tz * tz));
     }
 
-    float motionScore = (tiltDelta * 100.0) + (motionDelta * 100.0) + gyroMagDps;
+    float tiltLevel = tiltDelta * 100.0;
+    float shakeLevel = motionDelta * 500.0;
+    float turnLevel = gyroMotionDps * 0.5;
+    float movementLevel = max(tiltLevel, max(shakeLevel, turnLevel));
 
     Serial.printf("csv,%lu,%lu,%d,%d,%d,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%d,%d,%d,%.3f,%.3f,%.3f,%.3f,%.3f\n",
                   now, (unsigned long)sampleNumber, rx, ry, rz, xg, yg, zg, mag,
                   motionDelta, tiltDelta, rgx, rgy, rgz, gxDps, gyDps, gzDps,
-                  gyroMagDps, motionScore);
+                  gyroMotionDps, movementLevel);
     sampleNumber++;
 
     int16_t fx, fy, fz;
