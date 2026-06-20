@@ -30,7 +30,7 @@
 const int MPU = 0x68;
 
 // ===================== Sampling (Stage 1) =====================
-const int           SAMPLE_HZ        = 50;
+const int           SAMPLE_HZ        = 5;
 const unsigned long SAMPLE_PERIOD_MS = 1000 / SAMPLE_HZ;
 const int           BATCH_SECONDS    = 2;
 const int           BATCH_SAMPLES    = SAMPLE_HZ * BATCH_SECONDS;
