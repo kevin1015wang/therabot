@@ -11,11 +11,16 @@
   <img src="https://github.com/user-attachments/assets/f92592f0-9d48-48d2-9166-e8e89213052c" width="700">
 </div>
 
+<div align="center">
+  <img alt="SCR-20260621-ksih" src="https://github.com/user-attachments/assets/0f37d528-b592-414d-864d-0601fb56f9c3" />
+</div>
+
 <p align="center"><em>
-Figure: Example accelerometer signals from TheraCat showing stable motion patterns during a calm state and larger fluctuations during an agitated state used for stress classification.
+Figure: Example accelerometer signals from TheraCat showing stable motion patterns during a calm state and larger fluctuations during an agitated state used for stress classification. Live accelerometer data visualised in real time.
 </em></p>
 
-Figure: Example accelerometer signals from TheraCat showing stable motion patterns during a calm state and larger fluctuations during an agitated state used for stress classification.
+
+Figure: Example accelerometer signals from TheraCat showing stable motion patterns during a calm state and larger fluctuations during an agitated state used for stress classification. Live accelerometer data visualised in real time.
 
 TheraCat's stress-detection pipeline is backed by a lightweight accelerometer-based classification model. To make the development process transparent and reproducible, we included a Jupyter notebook that lets you explore the model, visualize sensor signals, and run predictions on sample data.
 
