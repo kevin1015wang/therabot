@@ -3,12 +3,12 @@
 </div>
 <img width="1254" height="1254" alt="theracat-gpt-logo" src="https://github.com/user-attachments/assets/9fdde664-2e8a-4728-bfdc-6e741faf23a8" />
 
-<div align="center">
-  <img src="https://github.com/user-attachments/assets/3d8bfb6c-5452-4081-9cfd-a73aecb208ed" width="450">
-</div>
 
 ## ML Model Demo & Google Colab Notebook
 
+<div align="center">
+  <img src="https://github.com/user-attachments/assets/3d8bfb6c-5452-4081-9cfd-a73aecb208ed" width="450">
+</div>
 
 
 <p align="center"><em>
