@@ -2,7 +2,7 @@
   <img src="https://github.com/user-attachments/assets/3d8bfb6c-5452-4081-9cfd-a73aecb208ed" width="450">
 </div>
 
-## ML Model Demo & Jupyter Notebook
+## ML Model Demo & Google Colab Notebook
 
 <div align="center">
   <img src="https://github.com/user-attachments/assets/f92592f0-9d48-48d2-9166-e8e89213052c" width="700">
@@ -16,7 +16,7 @@ Figure: Example accelerometer signals from TheraCat showing stable motion patter
 
 TheraCat's stress-detection pipeline is backed by a lightweight accelerometer-based classification model. To make the development process transparent and reproducible, we included a Jupyter notebook that lets you explore the model, visualize sensor signals, and run predictions on sample data.
 
-The notebook walks through the full workflow:
+The Google colab notebook (Therabot-Classifier.ipynb) walks through the full workflow:
 
 - Loading accelerometer data from the MPU6050 sensor
 - Preprocessing and cleaning raw motion signals
