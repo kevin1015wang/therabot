@@ -1,15 +1,15 @@
 <div align="center">
-  <img src="https://github.com/user-attachments/assets/f92592f0-9d48-48d2-9166-e8e89213052c" width="700">
+  <img alt="theracat-gpt-logo" src="https://github.com/user-attachments/assets/9fdde664-2e8a-4728-bfdc-6e741faf23a8" />
 </div>
-<img width="1254" height="1254" alt="theracat-gpt-logo" src="https://github.com/user-attachments/assets/9fdde664-2e8a-4728-bfdc-6e741faf23a8" />
-
-
-## ML Model Demo & Google Colab Notebook
 
 <div align="center">
   <img src="https://github.com/user-attachments/assets/3d8bfb6c-5452-4081-9cfd-a73aecb208ed" width="450">
 </div>
 
+## ML Model Demo & Google Colab Notebook
+<div align="center">
+  <img src="https://github.com/user-attachments/assets/f92592f0-9d48-48d2-9166-e8e89213052c" width="700">
+</div>
 
 <p align="center"><em>
 Figure: Example accelerometer signals from TheraCat showing stable motion patterns during a calm state and larger fluctuations during an agitated state used for stress classification.
