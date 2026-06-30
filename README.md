@@ -304,7 +304,7 @@ Lean into creativity and personalization to make the companion feel unique to ea
 ## Contributors
 
 - [Emily Li](https://github.com/emilyLi2020)
-- [Jingyi Zhang](https://github.com/jingy77)
+- [Jing Ye](https://github.com/jingy77)
 - [Kevin Wang](https://github.com/kevin1015wang)
 - [Siddhant Sanghi](https://github.com/Sid01123)
 
